@@ -8,33 +8,42 @@ with open("token", "r") as f:
 intents = discord.Intents.default()
 intents.messages = True
 
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
+
 
 @bot.event
 async def on_ready():
-    print(f'{bot.user.name} has connected to Discord!')
+    print(f"{bot.user.name} has connected to Discord!")
 
-@bot.command(name='export_messages')
+
+@bot.command(name="collect")
 async def export_messages(ctx):
     server = ctx.guild
-    output_file = io.StringIO()
-    csv_writer = csv.writer(output_file)
-
-    # Write CSV header
-    csv_writer.writerow(['channel', 'message_id', 'author', 'timestamp', 'content'])
 
     # Iterate through channels and collect messages
-    for channel in server.channels:
-        if isinstance(channel, discord.TextChannel):
-            async for message in channel.history(limit=None):
-                csv_writer.writerow([channel.name, message.id, message.author, message.created_at, message.content])
+    with open("server_messages.csv", "w") as f:
+        writer = csv.DictWriter(f, fieldnames=["Message", "Time", "Author", "Channel"])
+        writer.writeheader()
+        for channel in server.channels:
+            print(f"Collecting messages from {channel.name}")
+            if isinstance(channel, discord.TextChannel):
+                async for message in channel.history(limit=None):
+                    writer.writerow(
+                        {
+                            "Message": message.content,
+                            "Time": message.created_at,
+                            "Author": message.author.name,
+                            "Channel": message.channel,
+                        }
+                    )
 
-    # Reset the output_file cursor to the start
-    output_file.seek(0)
+        print("Done collecting messages")
+        # Send the collected messages in a CSV file
+        await ctx.send(
+            "Here's the CSV file of all messages:",
+            file=discord.File(f),
+        )
 
-    # Send the collected messages in a CSV file
-    await ctx.send("Here's the CSV file of all messages:", file=discord.File(output_file, 'server_messages.csv'))
 
 # Run the bot
 bot.run(TOKEN)
-
